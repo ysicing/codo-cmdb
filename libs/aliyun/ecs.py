@@ -96,11 +96,14 @@ class EcsAPi():
             asset_data['memory'] = M2human(i.get('Memory'))
             # 内网IP
             try:
+                #VPC里面内网IP
                 asset_data['private_ip'] = i['VpcAttributes']['PrivateIpAddress']['IpAddress'][0]
-            except KeyError:
+            except (KeyError, IndexError):
+                #非VPC里面获取内网IP
+                asset_data['private_ip'] = i['InnerIpAddress']['IpAddress'][0]
+            except Exception:
                 asset_data['private_ip'] = 'Null'
-
-            # 公网IP/弹性IP
+                # 公网IP/弹性IP
             try:
                 asset_data['public_ip'] = i['PublicIpAddress']['IpAddress'][0]
             except(KeyError, IndexError):
@@ -205,15 +208,17 @@ class EcsAPi():
         """
         count = self.get_server_count()
         # print('Tocal：{}'.format(count))
-        for c in range(1, count, 100):
-            self.page_number = c
-            if (c + 100) > count:
-                self.page_size = count
-            else:
-                self.page_size = c + 100
-            ins_log.read_log('info', '开始同步阿里云的第{}--第{}台机器'.format(self.page_number, self.page_size))
-            self.sync_cmdb()
 
+        self.page_size = 100
+        mod = count % self.page_size
+        if mod:
+            total_page_number = int(count / self.page_size) + 1
+        else:
+            total_page_number = int(count / self.page_size)
+        for cur_page_number in range(1, total_page_number+1):
+            self.page_number = cur_page_number
+            ins_log.read_log('info', '开始同步阿里云第{}页的{}台机器'.format(self.page_number, self.page_size))
+            self.sync_cmdb()
 
 def get_configs():
     """
